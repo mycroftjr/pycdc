@@ -96,7 +96,7 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
     while (!source.atEof()) {
 
         curpos = pos;
-        bc_next(source, mod, opcode, operand, pos);
+        bc_next(source, mod, bytecode, opcode, operand, pos);
 
 #if defined(BLOCK_DEBUG) || defined(STACK_DEBUG)
         // DEBUG Positon in source file
@@ -132,14 +132,7 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
             opcode = Pyc::END_FINALLY;
         }
         
-        if (need_try && opcode != Pyc::SETUP_EXCEPT_A) {
-            need_try = false;
-            /* Store the current stack for the except/finally statement(s) */
-            stack_hist.push(stack);
-            PycRef<ASTBlock> tryblock = new ASTBlock(ASTBlock::BLK_TRY, curblock->end(), true);
-            blocks.push(tryblock);
-            curblock = blocks.top();
-        } else if (else_pop
+        if (else_pop
                 && opcode != Pyc::JUMP_FORWARD_A
                 && opcode != Pyc::JUMP_IF_FALSE_A
                 && opcode != Pyc::JUMP_IF_FALSE_OR_POP_A
@@ -1765,50 +1758,6 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
             Changed in version 3.11: Exception representation on the stack now consist of one, not three, items.
             */
             break;
-
-        case Pyc::WITH_EXCEPT_START:
-          /*
-          Calls the function in position 4 on the stack with arguments (type, val, tb) representing the exception at the top of the stack. Used to implement the call context_manager.__exit__(*exc_info()) when an exception has occurred in a with statement.
-          New in version 3.9.
-
-          The __exit__ function is in position 4 of the stack rather than 7. Exception representation on the stack now consist of one, not three, items.
-          Changed in version 3.11:
-          */
-        {
-          //curblock = ASTBlock::BLK_EXCEPT;
-          PycRef<PycString> msg = new PycString();
-          msg->setValue(
-            "# Decompile 'WITH_EXCEPT_START' is not implemented yet.\n"
-          );
-          //fputs( msg->strValue, pyc_output);
-          OutputString(msg);
-          /*
-         // TODO: Get that message into the AST (Abtract Syntax Tree) to be shown at the right spot
-         //       However that f*** Types in CPP gimme a crisis
-         //
-         //       ... and again I know why I prefer Python when coding.
-
-                     PycRef<PycString> name = new ASTName( msg );
-                     curblock->append(
-                           name.cast<PycString>()
-                     );
-         */
-        }
-        break;
-        
-        case Pyc::RERAISE:
-        // Re-raises the exception currently on top of the stack. 
-        // If oparg is non-zero, pops an additional value from the stack which is used to 
-        // set f_lasti of the current frame.
-        // New in version 3.9.
-        //  Changed in version 3.11: Exception representation on the stack now consist of one, not three, items.
-        //https://docs.python.org/3/library/dis.html#opcode-RERAISE
-
-        {
-          const char* msg = "# Decompile 'RERAISE' is not implemented yet.\n";
-          fputs(msg, pyc_output);
-        }
-        break;
 
         case Pyc::POP_TOP:
             {
