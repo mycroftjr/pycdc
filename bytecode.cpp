@@ -354,6 +354,7 @@ void bc_disasm(std::ostream& pyc_output, PycRef<PycCode> code, PycModule* mod,
 
         if (opcode >= Pyc::PYC_HAVE_ARG) {
             switch (opcode) {
+            // ConstArgs
             case Pyc::LOAD_CONST_A:
             case Pyc::RESERVE_FAST_A:
             case Pyc::KW_NAMES_A:
@@ -382,6 +383,7 @@ void bc_disasm(std::ostream& pyc_output, PycRef<PycCode> code, PycModule* mod,
                     formatted_print(pyc_output, "%d <INVALID>", operand);
                 }
                 break;
+            // NameArgs
             case Pyc::DELETE_ATTR_A:
             case Pyc::DELETE_GLOBAL_A:
             case Pyc::DELETE_NAME_A:
@@ -413,6 +415,7 @@ void bc_disasm(std::ostream& pyc_output, PycRef<PycCode> code, PycModule* mod,
                     formatted_print(pyc_output, "%d <INVALID>", operand);
                 }
                 break;
+            // VarNameArgs
             case Pyc::DELETE_FAST_A:
             case Pyc::LOAD_FAST_A:
             case Pyc::STORE_FAST_A:
@@ -424,6 +427,7 @@ void bc_disasm(std::ostream& pyc_output, PycRef<PycCode> code, PycModule* mod,
                     formatted_print(pyc_output, "%d <INVALID>", operand);
                 }
                 break;
+            // IsCellArg
             case Pyc::LOAD_FAST_LOAD_FAST_A:
             case Pyc::STORE_FAST_LOAD_FAST_A:
             case Pyc::STORE_FAST_STORE_FAST_A:
@@ -448,6 +452,7 @@ void bc_disasm(std::ostream& pyc_output, PycRef<PycCode> code, PycModule* mod,
                     formatted_print(pyc_output, "%d <INVALID>", operand);
                 }
                 break;
+            // JumpOffsetArgs
             case Pyc::JUMP_FORWARD_A:
             case Pyc::JUMP_IF_FALSE_A:
             case Pyc::JUMP_IF_TRUE_A:
@@ -478,6 +483,7 @@ void bc_disasm(std::ostream& pyc_output, PycRef<PycCode> code, PycModule* mod,
                     formatted_print(pyc_output, "%d (to %d)", operand, pos+offs);
                 }
                 break;
+            // JumpArgs
             case Pyc::JUMP_BACKWARD_NO_INTERRUPT_A:
             case Pyc::JUMP_BACKWARD_A:
             case Pyc::POP_JUMP_BACKWARD_IF_NOT_NONE_A:

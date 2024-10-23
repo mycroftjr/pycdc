@@ -392,6 +392,7 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                 stack.push(new ASTJoinedStr(values));
             }
             break;
+        case Pyc::BUILD_TUPLE_UNPACK_WITH_CALL_A:
         case Pyc::BUILD_TUPLE_A:
             {
                 // if class is a closure code, ignore this tuple
@@ -408,7 +409,8 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                 }
                 stack.push(new ASTTuple(values));
             }
-            break;
+            if (opcode != Pyc::BUILD_TUPLE_UNPACK_WITH_CALL_A)
+                break;
         case Pyc::KW_NAMES_A:
             {
 
@@ -424,6 +426,7 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
             break;
         case Pyc::CALL_A:
         case Pyc::CALL_FUNCTION_A:
+        case Pyc::CALL_FUNCTION_EX_A:
         case Pyc::INSTRUMENTED_CALL_A:
             {
                 int kwparams = (operand & 0xFF00) >> 8;
@@ -984,6 +987,16 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                 if (conversion_flag & ASTFormattedValue::HAVE_FMT_SPEC) {
                     format_spec = stack.top();
                     stack.pop();
+                } else {
+                  switch (conversion_flag) {
+                    case ASTFormattedValue::ConversionFlag::NONE:
+                    case ASTFormattedValue::ConversionFlag::STR:
+                    case ASTFormattedValue::ConversionFlag::REPR:
+                    case ASTFormattedValue::ConversionFlag::ASCII:
+                      break;
+                    default:
+                      fprintf(stderr, "Unsupported FORMAT_VALUE_A conversion flag: %d\n", operand);
+                  }
                 }
                 auto val = stack.top();
                 stack.pop();
@@ -1527,6 +1540,12 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                     then a NULL is pushed to the stack before the global variable. */
                     stack.push(nullptr);
                 }
+                /*
+                and thats because for some reason for example 3 global functions: input, int, print.
+                it tries to load: 1, 3, 5
+                all though we have only 3 names, so thats should be: (1-1)/2 = 0, (3-1)/2 = 1, (5-1)/2 = 2
+                i dont know why, maybe because of the null push, but thats a FIX for now.
+                */
                 operand >>= 1;
             }
             stack.push(new ASTName(code->getName(operand)));
@@ -2494,7 +2513,7 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
     }
 
     if (blocks.size() > 1) {
-        fputs("Warning: block stack is not empty!\n", stderr);
+        fprintf(stderr, "Warning: block stack is not empty after  %s!\n", Pyc::OpcodeName(opcode));
 
         while (blocks.size() > 1) {
             PycRef<ASTBlock> tmp = blocks.top();
@@ -2662,9 +2681,11 @@ void print_formatted_value(PycRef<ASTFormattedValue> formatted_value, PycModule*
     case ASTFormattedValue::ASCII:
         pyc_output << "!a";
         break;
-    }
-    if (formatted_value->conversion() & ASTFormattedValue::HAVE_FMT_SPEC) {
-        pyc_output << ":" << formatted_value->format_spec().cast<ASTObject>()->object().cast<PycString>()->value();
+    default:
+       if (formatted_value->conversion() & ASTFormattedValue::HAVE_FMT_SPEC) {
+           pyc_output << ":" << formatted_value->format_spec().cast<ASTObject>()->object().cast<PycString>()->value();
+       } else
+           fprintf(stderr, "Unsupported NODE_FORMATTEDVALUE conversion flag: %d\n", formatted_value->conversion());
     }
     pyc_output << "}";
 }
@@ -3383,6 +3404,7 @@ void decompyle(PycRef<PycCode> code, PycModule* mod, std::ostream& pyc_output)
                 PycRef<ASTObject> src = store->src().cast<ASTObject>();
                 PycRef<PycString> srcString = src->object().try_cast<PycString>();
                 PycRef<ASTName> dest = store->dest().cast<ASTName>();
+                // if (srcString != nullptr && srcString->isEqual(code->name().cast<PycObject>()) &&
                 if (dest->name()->isEqual("__qualname__")) {
                     // __qualname__ = '<Class Name>'
                     // Automatically added by Python 3.3 and later
