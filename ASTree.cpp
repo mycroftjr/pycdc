@@ -1641,8 +1641,9 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                 {
                     /* Emulate a BEGIN_FINALLY for Python 3.9 when
                        POP_BLOCK happens in a FINALLY block */
+                    unsigned char target_bytecode;
                     int target_opcode, target_operand;
-                    bc_get_at(source, mod, target_opcode, target_operand, pos);
+                    bc_get_at(source, mod, target_bytecode, target_opcode, target_operand, pos);
                     if (target_opcode != Pyc::JUMP_FORWARD_A)
                     {
                         stack.push(NULL);
@@ -2008,8 +2009,9 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                 {
                     /* Try to guess if we have an exception or finally
                        block by looking at the opcode pointed by the operand */
+                    unsigned char target_bytecode;
                     int target_opcode, target_operand;
-                    bc_get_at(source, mod, target_opcode, target_operand, pos+operand);
+                    bc_get_at(source, mod, target_bytecode, target_opcode, target_operand, pos+operand);
 
                     /* POP_TOP (x3) and DUP_TOP usually mean it's the start of
                        an exception block */
@@ -2046,8 +2048,9 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
 
                     /* Look at the next opcode. If it is not an EXCEPT
                        block, then push a new TRY block */
+                    unsigned char next_bytecode;
                     int next_opcode, next_operand;
-                    int next_pos = bc_get_at(source, mod, next_opcode, next_operand, pos);
+                    int next_pos = bc_get_at(source, mod, next_bytecode, next_opcode, next_operand, pos);
 
                     /* Up til Python 3.7 */
                     bool is_next_except = next_opcode == Pyc::SETUP_EXCEPT_A;
@@ -2057,8 +2060,9 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                     {
                         /* Try to guess if we have an exception or finally
                            block by looking at the opcode pointed by the operand */
+                        unsigned char target_bytecode;
                         int target_opcode, target_operand;
-                        bc_get_at(source, mod, target_opcode, target_operand, next_pos+next_operand);
+                        bc_get_at(source, mod, target_bytecode, target_opcode, target_operand, next_pos+next_operand);
 
                         /* POP_TOP (x3) and DUP_TOP usually mean it's the start of
                            an exception block */

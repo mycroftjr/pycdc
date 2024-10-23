@@ -305,7 +305,7 @@ void bc_next(PycBuffer& source, PycModule* mod, unsigned char& bytecode, int& op
     }
 }
 
-int bc_get_at(PycBuffer& source, PycModule *mod, int& opcode, int &operand, int pos)
+int bc_get_at(PycBuffer& source, PycModule *mod, unsigned char& bytecode, int& opcode, int &operand, int pos)
 {
     /* save current pos */
     int old_pos = source.setPos(pos);
@@ -317,7 +317,7 @@ int bc_get_at(PycBuffer& source, PycModule *mod, int& opcode, int &operand, int 
     }
 
     /* read opcode at requested pos */
-    bc_next(source, mod, opcode, operand, pos);
+    bc_next(source, mod, bytecode, opcode, operand, pos);
 
     /* restore saved pos */
     source.setPos(old_pos);
