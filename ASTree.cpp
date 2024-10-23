@@ -1354,7 +1354,7 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                 }
 
                 if (blocks.size() == 1 && !source.atEof()) {
-                    fprintf(stderr, "Warning: Refusing to pop last block when there is more code to parse pos: %d OP: %02x\n", pos, opcode & 0xff);
+                    fprintf(stderr, "Warning: Refusing to pop last block when there is more code to parse pos: %d OP: %02x(%s) (bytecode=%02Xh)\n", pos, opcode & 0xff, Pyc::OpcodeName(opcode), bytecode);
                     cleanBuild = false;
                     break;
                 }
@@ -1667,7 +1667,7 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                 }
 
                 if (blocks.size() == 1 && !source.atEof()) {
-                    fprintf(stderr, "Warning: Refusing to pop last block when there is more code to parse pos: %d OP: %02x\n", pos, opcode & 0xff);
+                    fprintf(stderr, "Warning: Refusing to pop last block when there is more code to parse pos: %d OP: %02x(%s) (bytecode=%02Xh)\n", pos, opcode & 0xff, Pyc::OpcodeName(opcode), bytecode);
                     cleanBuild = false;
                     break;
                 }
@@ -2622,7 +2622,7 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
             }
             break;
         default:
-            fprintf(stderr, "Unsupported opcode: %s (bytecode=%02Xh) at position %d.\n", Pyc::OpcodeName(opcode), bytecode, curpos);
+            fprintf(stderr, "Unsupported opcode: %s(%d) (bytecode=%02Xh) at position %d.\n", Pyc::OpcodeName(opcode), opcode, bytecode, pos);
             cleanBuild = false;
             return new ASTNodeList(defblock->nodes());
         }
