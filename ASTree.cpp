@@ -1282,12 +1282,16 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                 curblock = blocks.top();
             }
             break;
+        case Pyc::JUMP_BACKWARD_A:
         case Pyc::JUMP_FORWARD_A:
         case Pyc::INSTRUMENTED_JUMP_FORWARD_A:
             {
                 int offs = operand;
                 if (mod->verCompare(3, 10) >= 0)
                     offs *= sizeof(uint16_t); // // BPO-27129
+								
+                if (opcode == Pyc::JUMP_BACKWARD_A)
+                    offs *= -1;
 
                 if (curblock->blktype() == ASTBlock::BLK_CONTAINER) {
                     PycRef<ASTContainerBlock> cont = curblock.cast<ASTContainerBlock>();
