@@ -1,6 +1,8 @@
 #ifndef _PYC_OBJECT_H
 #define _PYC_OBJECT_H
 
+#include <sstream>
+#include <stacktrace>
 #include <typeinfo>
 
 template <class _Obj>
@@ -76,8 +78,12 @@ public:
     PycRef<_Cast> cast() const
     {
         _Cast* result = dynamic_cast<_Cast*>(m_obj);
-        if (!result)
-            throw std::bad_cast();
+        if (!result) {
+            // throw std::bad_cast();
+            std::ostringstream oss = std::ostringstream();
+            oss << "bad cast from " << typeid(_Obj*).name() << " (" << (m_obj ? typeid(*m_obj).name() : "nullptr") << ", " << static_cast<void*>(m_obj) << ")" << " to " << typeid(_Cast*).name() << "!" << std::endl << std::stacktrace::current();
+            throw std::runtime_error(oss.str());
+        }
         return result;
     }
 

@@ -100,7 +100,7 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
 
 #if defined(BLOCK_DEBUG) || defined(STACK_DEBUG)
         // DEBUG Positon in source file
-        fprintf(stderr, "%-7d  %-3d %-16s_%-2d", pos, opcode, Pyc::OpcodeName(opcode & 0xFF), operand);
+        fprintf(stderr, "%-7d  %-3d %-16s_%-2d", curpos, opcode, Pyc::OpcodeName(opcode & 0xFF), operand);
     #ifdef STACK_DEBUG
         fprintf(stderr, "%-5d", (unsigned int)stack_hist.size() + 1);
     #endif
@@ -113,10 +113,10 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
         fprintf(stderr, "%s (%d)", curblock->type_str(), curblock->end());
     #endif
         fprintf(stderr, "\n");
+        if (pos < curpos) {
+            fprintf(stderr, "Going backwards?!\n");
+        }
 #endif
-
-        curpos = pos;
-        bc_next(source, mod, bytecode, opcode, operand, pos);
 
         if (mod->verCompare(3, 9) >= 0
             && opcode == Pyc::JUMP_FORWARD_A
@@ -1550,11 +1550,22 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                         t_ob->object().type() == PycObject::TYPE_SMALL_TUPLE) &&
                         !t_ob->object().cast<PycTuple>()->values().size()) {
                     ASTTuple::value_t values;
-                    stack.push(new ASTTuple(values));
+                    auto v = new ASTTuple(values);
+                    stack.push(v);
+#if defined(BLOCK_DEBUG) || defined(STACK_DEBUG)
+                    fprintf(stderr, "loaded tuple %p\n", v);
+#endif
                 } else if (t_ob->object().type() == PycObject::TYPE_NONE) {
                     stack.push(NULL);
+#if defined(BLOCK_DEBUG) || defined(STACK_DEBUG)
+                    fprintf(stderr, "loaded NULL\n");
+#endif
                 } else {
-                    stack.push(t_ob.cast<ASTNode>());
+                    auto t = t_ob.cast<ASTNode>();
+                    stack.push(t);
+#if defined(BLOCK_DEBUG) || defined(STACK_DEBUG)
+                    fprintf(stderr, "loaded t_ob cast as ASTNode %p\n", &(*t));
+#endif
                 }
             }
             break;
@@ -1615,6 +1626,9 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                 int tos_type = fun_code.cast<ASTObject>()->object().type();
                 if (tos_type != PycObject::TYPE_CODE &&
                     tos_type != PycObject::TYPE_CODE2) {
+#if defined(BLOCK_DEBUG) || defined(STACK_DEBUG)
+                    fprintf(stderr, "extra pop\n");
+#endif
                     fun_code = stack.top();
                     stack.pop();
                 }
@@ -1650,11 +1664,20 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                     }
 
                     if (operand & 0x01) {
-                        PycRef<PycTuple> defaultsTuple = stack.top().cast<ASTObject>()->object().cast<PycTuple>();
-                        stack.pop();
+                        if (stack.top().try_cast<ASTObject>()) {
+                            PycRef<PycTuple> defaultsTuple = stack.top().cast<ASTObject>()->object().cast<PycTuple>();
+                            stack.pop();
 
-                        for (PycRef<PycObject> value : defaultsTuple->values())
-                            defArgs.push_back(new ASTObject(value));
+                            for (PycRef<PycObject> value : defaultsTuple->values())
+                                defArgs.push_back(new ASTObject(value));
+                        } else {
+                            // TODO: some part of this is probably incorrect, but the cast to ASTObject was failing
+                            PycRef<ASTTuple> defaultsTuple = stack.top().cast<ASTTuple>();
+                            stack.pop();
+
+                            for (PycRef<ASTNode> value : defaultsTuple->values())
+                                defArgs.push_back(value);
+                        }
                     }
                 }
                 stack.push(new ASTFunction(fun_code, defArgs, kwDefArgs));
@@ -1899,6 +1922,9 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                     curblock->append(prev.cast<ASTNode>());
 
                     bc_next(source, mod, bytecode, opcode, operand, pos);
+#if defined(BLOCK_DEBUG) || defined(STACK_DEBUG)
+                    fprintf(stderr, "RAISE_VARARGS_A discarding %-7d  %-3d %-16s_%-2d\n", pos, opcode, Pyc::OpcodeName(opcode & 0xFF), operand);
+#endif
                 }
             }
             break;
@@ -1922,6 +1948,9 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                     curblock->append(prev.cast<ASTNode>());
 
                     bc_next(source, mod, bytecode, opcode, operand, pos);
+#if defined(BLOCK_DEBUG) || defined(STACK_DEBUG)
+                    fprintf(stderr, "RETURN_VALUE discarding %-7d  %-3d %-16s_%-2d\n", pos, opcode, Pyc::OpcodeName(opcode & 0xFF), operand);
+#endif
                 }
             }
             break;
@@ -2649,7 +2678,7 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
             }
             break;
         default:
-            fprintf(stderr, "Unsupported opcode: %s(%d) (bytecode=%02Xh) at position %d.\n", Pyc::OpcodeName(opcode), opcode, bytecode, pos);
+            fprintf(stderr, "Unsupported opcode: %s(%d) (bytecode=%02Xh) at position %d.\n", Pyc::OpcodeName(opcode), opcode, bytecode, curpos);
             cleanBuild = false;
             return new ASTNodeList(defblock->nodes());
         }
@@ -3123,6 +3152,9 @@ void print_src(PycRef<ASTNode> node, PycModule* mod, std::ostream& pyc_output)
             PycRef<PycObject> obj = node.cast<ASTObject>()->object();
             if (obj.type() == PycObject::TYPE_CODE) {
                 PycRef<PycCode> code = obj.cast<PycCode>();
+#if defined(BLOCK_DEBUG) || defined(STACK_DEBUG)
+                fprintf(stderr, "new object\n");
+#endif
                 decompyle(code, mod, pyc_output);
             } else {
                 print_const(pyc_output, obj, mod);
