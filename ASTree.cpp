@@ -1328,131 +1328,132 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                 curblock = blocks.top();
             }
             break;
-        case Pyc::JUMP_BACKWARD_A:
         case Pyc::JUMP_FORWARD_A:
         case Pyc::INSTRUMENTED_JUMP_FORWARD_A:
-            {
-                int offs = operand;
-                if (mod->verCompare(3, 10) >= 0)
-                    offs *= sizeof(uint16_t); // // BPO-27129
-								
-                if (opcode == Pyc::JUMP_BACKWARD_A)
-                    offs *= -1;
+        {
+            int offs = operand;
+            if (mod->verCompare(3, 10) >= 0)
+                offs *= sizeof(uint16_t); // // BPO-27129
 
-                if (curblock->blktype() == ASTBlock::BLK_CONTAINER) {
-                    PycRef<ASTContainerBlock> cont = curblock.cast<ASTContainerBlock>();
-                    if (cont->hasExcept()) {
-                        stack_hist.push(stack);
+            if (curblock->blktype() == ASTBlock::BLK_CONTAINER) {
+                PycRef<ASTContainerBlock> cont = curblock.cast<ASTContainerBlock>();
+                if (cont->hasExcept()) {
+                    stack_hist.push(stack);
 
-                        curblock->setEnd(pos+offs);
-                        PycRef<ASTBlock> except = new ASTCondBlock(ASTBlock::BLK_EXCEPT, pos+offs, NULL, false);
-                        except->init();
-                        blocks.push(except);
-                        curblock = blocks.top();
-                    }
-                    break;
+                    curblock->setEnd(pos + offs);
+                    PycRef<ASTBlock> except = new ASTCondBlock(ASTBlock::BLK_EXCEPT, pos + offs, NULL, false);
+                    except->init();
+                    blocks.push(except);
+                    curblock = blocks.top();
                 }
-
-                if (!stack_hist.empty()) {
-                    if (stack.empty()) // if it's part of if-expression, TOS at the moment is the result of "if" part
-                        stack = stack_hist.top();
-                    stack_hist.pop();
-                }
-
-                if (blocks.size() == 1 && !source.atEof()) {
-                    fprintf(stderr, "Warning: Refusing to pop last block when there is more code to parse pos: %d OP: %02x(%s) (bytecode=%02Xh)\n", pos, opcode & 0xff, Pyc::OpcodeName(opcode), bytecode);
-                    cleanBuild = false;
-                    break;
-                }
-
-                PycRef<ASTBlock> prev = curblock;
-                PycRef<ASTBlock> nil;
-                bool push = true;
-
-                do {
-                    blocks.pop();
-
-                    if (!blocks.empty())
-                        blocks.top()->append(prev.cast<ASTNode>());
-
-                    if (prev->blktype() == ASTBlock::BLK_IF
-                            || prev->blktype() == ASTBlock::BLK_ELIF) {
-                        if (offs == 0) {
-                            prev = nil;
-                            continue;
-                        }
-
-                        if (push) {
-                            stack_hist.push(stack);
-                        }
-                        PycRef<ASTBlock> next = new ASTBlock(ASTBlock::BLK_ELSE, pos+offs);
-                        if (prev->inited() == ASTCondBlock::PRE_POPPED) {
-                            next->init(ASTCondBlock::PRE_POPPED);
-                        }
-
-                        blocks.push(next.cast<ASTBlock>());
-                        prev = nil;
-                    } else if (prev->blktype() == ASTBlock::BLK_EXCEPT) {
-                        if (offs == 0) {
-                            prev = nil;
-                            continue;
-                        }
-
-                        if (push) {
-                            stack_hist.push(stack);
-                        }
-                        PycRef<ASTBlock> next = new ASTCondBlock(ASTBlock::BLK_EXCEPT, pos+offs, NULL, false);
-                        next->init();
-
-                        blocks.push(next.cast<ASTBlock>());
-                        prev = nil;
-                    } else if (prev->blktype() == ASTBlock::BLK_ELSE) {
-                        /* Special case */
-                        prev = blocks.top();
-                        if (!push) {
-                            stack = stack_hist.top();
-                            stack_hist.pop();
-                        }
-                        push = false;
-
-                        if (prev->blktype() == ASTBlock::BLK_MAIN) {
-                            /* Something went out of control! */
-                            prev = nil;
-                        }
-                    } else if (prev->blktype() == ASTBlock::BLK_TRY
-                            && prev->end() < pos+offs) {
-                        /* Need to add an except/finally block */
-                        stack = stack_hist.top();
-                        stack.pop();
-
-                        if (blocks.top()->blktype() == ASTBlock::BLK_CONTAINER) {
-                            PycRef<ASTContainerBlock> cont = blocks.top().cast<ASTContainerBlock>();
-                            if (cont->hasExcept()) {
-                                if (push) {
-                                    stack_hist.push(stack);
-                                }
-
-                                PycRef<ASTBlock> except = new ASTCondBlock(ASTBlock::BLK_EXCEPT, pos+offs, NULL, false);
-                                except->init();
-                                blocks.push(except);
-                            }
-                        } else {
-                            fprintf(stderr, "Something TERRIBLE happened!!\n");
-                        }
-                        prev = nil;
-                    } else {
-                        prev = nil;
-                    }
-
-                } while (prev != nil);
-
-                curblock = blocks.top();
-
-                if (curblock->blktype() == ASTBlock::BLK_EXCEPT) {
-                    curblock->setEnd(pos+offs);
-                }
+                break;
             }
-            break;
+
+            if (!stack_hist.empty()) {
+                if (stack.empty()) // if it's part of if-expression, TOS at the moment is the result of "if" part
+                    stack = stack_hist.top();
+                stack_hist.pop();
+            }
+
+            if (blocks.size() == 1 && !source.atEof()) {
+                fprintf(stderr, "Warning: Refusing to pop last block when there is more code to parse pos: %d OP: %02x(%s) (bytecode=%02Xh)\n", pos, opcode & 0xff, Pyc::OpcodeName(opcode), bytecode);
+                cleanBuild = false;
+                break;
+            }
+
+            PycRef<ASTBlock> prev = curblock;
+            PycRef<ASTBlock> nil;
+            bool push = true;
+
+            do {
+                blocks.pop();
+
+                if (!blocks.empty())
+                    blocks.top()->append(prev.cast<ASTNode>());
+
+                if (prev->blktype() == ASTBlock::BLK_IF
+                    || prev->blktype() == ASTBlock::BLK_ELIF) {
+                    if (offs == 0) {
+                        prev = nil;
+                        continue;
+                    }
+
+                    if (push) {
+                        stack_hist.push(stack);
+                    }
+                    PycRef<ASTBlock> next = new ASTBlock(ASTBlock::BLK_ELSE, pos + offs);
+                    if (prev->inited() == ASTCondBlock::PRE_POPPED) {
+                        next->init(ASTCondBlock::PRE_POPPED);
+                    }
+
+                    blocks.push(next.cast<ASTBlock>());
+                    prev = nil;
+                }
+                else if (prev->blktype() == ASTBlock::BLK_EXCEPT) {
+                    if (offs == 0) {
+                        prev = nil;
+                        continue;
+                    }
+
+                    if (push) {
+                        stack_hist.push(stack);
+                    }
+                    PycRef<ASTBlock> next = new ASTCondBlock(ASTBlock::BLK_EXCEPT, pos + offs, NULL, false);
+                    next->init();
+
+                    blocks.push(next.cast<ASTBlock>());
+                    prev = nil;
+                }
+                else if (prev->blktype() == ASTBlock::BLK_ELSE) {
+                    /* Special case */
+                    prev = blocks.top();
+                    if (!push) {
+                        stack = stack_hist.top();
+                        stack_hist.pop();
+                    }
+                    push = false;
+
+                    if (prev->blktype() == ASTBlock::BLK_MAIN) {
+                        /* Something went out of control! */
+                        prev = nil;
+                    }
+                }
+                else if (prev->blktype() == ASTBlock::BLK_TRY
+                    && prev->end() < pos + offs) {
+                    /* Need to add an except/finally block */
+                    stack = stack_hist.top();
+                    stack.pop();
+
+                    if (blocks.top()->blktype() == ASTBlock::BLK_CONTAINER) {
+                        PycRef<ASTContainerBlock> cont = blocks.top().cast<ASTContainerBlock>();
+                        if (cont->hasExcept()) {
+                            if (push) {
+                                stack_hist.push(stack);
+                            }
+
+                            PycRef<ASTBlock> except = new ASTCondBlock(ASTBlock::BLK_EXCEPT, pos + offs, NULL, false);
+                            except->init();
+                            blocks.push(except);
+                        }
+                    }
+                    else {
+                        fprintf(stderr, "Something TERRIBLE happened!!\n");
+                    }
+                    prev = nil;
+                }
+                else {
+                    prev = nil;
+                }
+
+            } while (prev != nil);
+
+            curblock = blocks.top();
+
+            if (curblock->blktype() == ASTBlock::BLK_EXCEPT) {
+                curblock->setEnd(pos + offs);
+            }
+        }
+        break;
         case Pyc::LIST_APPEND:
         case Pyc::LIST_APPEND_A:
             {
@@ -1953,7 +1954,7 @@ PycRef<ASTNode> BuildFromCode(PycRef<PycCode> code, PycModule* mod)
                     curblock = blocks.top();
                     curblock->append(prev.cast<ASTNode>());
 
-                    bc_next(source, mod, opcode, operand, pos);
+                    bc_next(source, mod, bytecode, opcode, operand, pos);
 #if defined(BLOCK_DEBUG) || defined(STACK_DEBUG)
                     fprintf(stderr, "RAISE_VARARGS_A discarding %-7d  %-3d %-16s_%-2d\n", pos, opcode, Pyc::OpcodeName(opcode & 0xFF), operand);
 #endif
